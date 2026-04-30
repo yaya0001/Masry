@@ -53,7 +53,6 @@ def load_model_once():
 async def startup_event():
     threading.Thread(target=load_model_once, daemon=True).start()
 
-# ── Pydantic models (OpenAI format) ──────────────────────────────────────────
 class Message(BaseModel):
     role: str
     content: str
