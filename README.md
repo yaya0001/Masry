@@ -517,7 +517,3 @@ All prices are **approximate** and based on AWS **us-east-1** on-demand pricing 
 - [Stack Overflow](https://stackoverflow.com/) / Hugging Face — Q&A dataset
 - [Hugging Face TRL](https://github.com/huggingface/trl) — `SFTTrainer` used for supervised fine-tuning
 - [HashiCorp Terraform](https://www.terraform.io/) — infrastructure-as-code for AWS provisioning
-
----
-
-*README generated from full repository analysis — `yaya0001/Masry`*
