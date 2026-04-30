@@ -489,7 +489,7 @@ All prices are **approximate** and based on AWS **us-east-1** on-demand pricing 
 | | | | **Total estimate** | **~$6.434** |
 
 > **💡 Cost-saving tips:**
-> - Use a **Spot Instance** for the `g5.2xlarge` to cut EC2 cost by ~70% (~$4 vs ~$14).
+> - Use a **Spot Instance** for the `g5.2xlarge` to cut EC2 cost by ~70% (~$1.2 vs ~$4.024).
 > - **Stop** (don't terminate) the EC2 instance between sessions to avoid re-downloading the model.
 > - Enable **S3 Intelligent-Tiering** if you store artifacts for more than 30 days.
 > - Use **Google Colab** (free T4) for the training phase and reserve EC2 for inference only.
