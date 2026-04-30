@@ -333,10 +333,10 @@ export SG_ID=$(aws ec2 describe-security-groups \
   --filters "Name=group-name,Values=NetID-25jpkj-sg" \
   --query "SecurityGroups[0].GroupId" --output text)
 
-# Launch a g5.2xlarge (24 GB A10G GPU)
+# Launch a m5.xlarge
 aws ec2 run-instances \
   --image-id $AMI_ID \
-  --instance-type g5.2xlarge \
+  --instance-type m5.xlarge \
   --key-name <your-key-pair-name> \
   --subnet-id $SUBNET_ID \
   --security-group-ids $SG_ID \
@@ -478,9 +478,9 @@ All prices are **approximate** and based on AWS **us-east-1** on-demand pricing 
 
 | AWS Service | Resource / Config | Unit Price | Estimated Usage | Approx. Cost |
 |---|---|---|---|---|
-| **EC2** | `g5.2xlarge` (A10G 24 GB) | $1.006/hr | ~4 hours | **~$4.024** |
+| **EC2** | `m5.xlarge` | $0.19/hr | ~4 hours | **~$0.76** |
 | **EC2 EBS** | gp3 100 GB root volume | $0.08/GB-month | 1 day (~0.033 month) | **~$0.26** |
-| **S3** | Storage (dataset ~2 GB + model ~7 GB) | $0.023/GB-month | ~9 GB × 1 month | **~$0.21** |
+| **S3** | Storage (dataset ~54 GB + model ~7 GB) | $0.023/GB-month | ~9 GB × 1 month | **~$0.21** |
 | **S3** | PUT/GET requests | $0.005 per 1K PUT | ~5,000 PUT requests | **~$0.03** |
 | **VPC / IGW** | Internet Gateway data transfer | $0.09/GB out | ~5 GB egress | **~$0.45** |
 | **Data Transfer** | S3 ↔ EC2 (same region) | Free | — | **$0.00** |
@@ -488,10 +488,9 @@ All prices are **approximate** and based on AWS **us-east-1** on-demand pricing 
 | **EC2 (Deployment)** | `t3.xlarge` (4 vCPUs, 16 GB RAM) | $0.1664/hr | ~8 hrs inference/deployment | **~$1.33** |
 | **EC2 EBS (Deployment)** | gp3 50 GB root volume | $0.08/GB-month | 1 day (~0.033 month) | **~$0.13** |
 | **Docker / OpenWebUI** | OpenWebUI container on EC2 | Free | — | **$0.00** |
-| | | | **Total estimate** | **~$6.434** |
+| | | | **Total estimate** | **~$3.17** |
 
 > **💡 Cost-saving tips:**
-> - Use a **Spot Instance** for the `g5.2xlarge` to cut EC2 cost by ~70% (~$1.2 vs ~$4.024).
 > - **Stop** (don't terminate) the EC2 instance between sessions to avoid re-downloading the model.
 > - Enable **S3 Intelligent-Tiering** if you store artifacts for more than 30 days.
 > - Use **Google Colab** (free T4) for the training phase and reserve EC2 for inference only.
