@@ -29,7 +29,7 @@ Fine-tuning **Meta Llama-3.2-3B-Instruct** on Stack Overflow Q&A data using **QL
 | Training duration | ~4h 47m on NVIDIA RTX 5000 Ada (32 GB) |
 | Trainable parameters | 9.2M / 3.2B (0.28%) |
 | Final training loss | 2.09 → 1.76 over 2 epochs |
-| Inference server | FastAPI / Streamlit on port 8501 |
+| Inference server | FastAPI / [Open WebUI](https://openwebui.com/) on port 3000 |
 | Cloud provider | AWS (us-east-1) |
 | IaC tool | Terraform |
 
@@ -379,72 +379,94 @@ terraform destroy -auto-approve
 
 ## Phase 4 — Model Deployment & API Server
 
-`api_server.py` loads the fine-tuned LoRA adapters and exposes the model as a web service (Streamlit on port **8501**).
+`api_server.py` loads the fine-tuned LoRA adapters and exposes the model via a **FastAPI** server (Uvicorn) on port **8000**. A browser-based chat interface is provided by **OpenWebUI** running in Docker on port **3000**. The EC2 instance used is a **t3.xlarge** (4 vCPUs, 16 GB RAM, 50 GB storage, Ubuntu 24).
 
 ### 4.1 Install server dependencies on EC2
 
 ```bash
-pip install unsloth transformers bitsandbytes peft accelerate streamlit fastapi uvicorn
+# Connect to the EC2 instance
+ssh -i "project-key.pem" ubuntu@35.172.182.41
+
+# Update the OS and install Python virtual environment tools
+sudo apt update
+sudo apt install python3-venv -y
 ```
 
 ### 4.2 Set model path
 
-Edit `api_server.py` and set the path to your saved LoRA adapters:
+Upload the project files and model to the EC2 instance, then create an isolated Python environment:
 
-```python
-MODEL_PATH = "/home/ubuntu/llama3-3b-finetuned"   # update if different
+```bash
+# From your local machine — upload code files and model weights
+scp -i "project-key.pem" -r masry-project/* ubuntu@35.172.182.41:/home/ubuntu/masry
+
+# On the EC2 instance — create a virtual environment and install requirements
+cd masry
+python3 -m venv masry
+source bin/activate
+pip install -r requirements.txt
 ```
 
 ### 4.3 Start the server
 
 ```bash
-# Run in the background with nohup so it survives SSH disconnection
-nohup python api_server.py > api_server.log 2>&1 &
-
-# Or for Streamlit-based UI
-nohup streamlit run api_server.py --server.port 8501 --server.address 0.0.0.0 \
-  > streamlit.log 2>&1 &
+uvicorn api_server:app --host 0.0.0.0 --port 8000
 ```
 
+When the model loads successfully you will see `[Masry] Model loaded successfully` in the output.
+
 ### 4.4 Access the interface
+
+Install Docker and launch OpenWebUI, which connects to the FastAPI server on port 8000:
+
+```bash
+sudo apt install docker.io -y
+sudo systemctl start docker
+sudo systemctl enable docker
+
+sudo docker run -d -p 3000:8080 \
+  -e OPENAI_API_BASE_URL=http://localhost:8000/v1 \
+  ghcr.io/open-webui/open-webui:main
+```
 
 Open your browser and navigate to:
 
 ```
-http://<EC2_PUBLIC_IP>:8501
+http://35.172.182.41:3000
 ```
 
-The security group already allows inbound traffic on port 8501.
+The security group already allows inbound traffic on port 3000.
 
 ### 4.5 Test the API (curl)
 
 ```bash
-curl -X POST http://<EC2_PUBLIC_IP>:8501/generate \
-  -H "Content-Type: application/json" \
-  -d '{"prompt": "How do I fix a segmentation fault in C++?"}'
+# Verify the LLM runner is active
+curl http://35.172.182.41:8000
+# Expected response: {"status":"ok","model_loaded":true,"error":null}
+
+# Verify the web interface is reachable
+curl http://35.172.182.41:3000
 ```
 
 ### 4.6 Load the model programmatically
 
-```python
-from unsloth import FastLanguageModel
+Configure both the FastAPI service and the Docker container to start automatically on server reboot:
 
-model, tokenizer = FastLanguageModel.from_pretrained(
-    model_name     = "/home/ubuntu/llama3-3b-finetuned",
-    max_seq_length = 1024,
-    dtype          = None,
-    load_in_4bit   = True,
-)
-FastLanguageModel.for_inference(model)
+```bash
+# Create a systemd service for FastAPI
+sudo nano /etc/systemd/system/fastapi.service
+# Add your ExecStart command for uvicorn, then enable it:
+sudo systemctl daemon-reload
+sudo systemctl enable fastapi
+sudo systemctl start fastapi
 
-inputs = tokenizer(
-    "<s>[INST] How do I fix a NullPointerException in Java? [/INST]",
-    return_tensors="pt"
-).to("cuda")
-
-outputs = model.generate(**inputs, max_new_tokens=256)
-print(tokenizer.decode(outputs[0], skip_special_tokens=True))
+# Run OpenWebUI with an auto-restart policy
+sudo docker run -d --restart unless-stopped -p 3000:8080 \
+  -e OPENAI_API_BASE_URL=http://localhost:8000/v1 \
+  ghcr.io/open-webui/open-webui:main
 ```
+
+With this setup, when the EC2 server restarts, the API service and Docker container start automatically — no manual steps required.
 
 ---
 
@@ -454,14 +476,17 @@ All prices are **approximate** and based on AWS **us-east-1** on-demand pricing 
 
 | AWS Service | Resource / Config | Unit Price | Estimated Usage | Approx. Cost |
 |---|---|---|---|---|
-| **EC2** | `g5.2xlarge` (A10G 24 GB) | $1.006/hr | ~6 hrs training + 8 hrs inference | **~$14.08** |
+| **EC2** | `g5.2xlarge` (A10G 24 GB) | $1.006/hr | ~4 hours | **~$4.024** |
 | **EC2 EBS** | gp3 100 GB root volume | $0.08/GB-month | 1 day (~0.033 month) | **~$0.26** |
 | **S3** | Storage (dataset ~2 GB + model ~7 GB) | $0.023/GB-month | ~9 GB × 1 month | **~$0.21** |
 | **S3** | PUT/GET requests | $0.005 per 1K PUT | ~5,000 PUT requests | **~$0.03** |
 | **VPC / IGW** | Internet Gateway data transfer | $0.09/GB out | ~5 GB egress | **~$0.45** |
 | **Data Transfer** | S3 ↔ EC2 (same region) | Free | — | **$0.00** |
 | **Terraform / CLI** | No cost for IaC tooling | Free | — | **$0.00** |
-| | | | **Total estimate** | **~$15.03** |
+| **EC2 (Deployment)** | `t3.xlarge` (4 vCPUs, 16 GB RAM) | $0.1664/hr | ~8 hrs inference/deployment | **~$1.33** |
+| **EC2 EBS (Deployment)** | gp3 50 GB root volume | $0.08/GB-month | 1 day (~0.033 month) | **~$0.13** |
+| **Docker / OpenWebUI** | OpenWebUI container on EC2 | Free | — | **$0.00** |
+| | | | **Total estimate** | **~$6.434** |
 
 > **💡 Cost-saving tips:**
 > - Use a **Spot Instance** for the `g5.2xlarge` to cut EC2 cost by ~70% (~$4 vs ~$14).
