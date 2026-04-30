@@ -406,7 +406,9 @@ python3 -m venv masry
 source bin/activate
 pip install -r requirements.txt
 ```
-
+>
+> Note: The the files uploaded are the llama3-3b-finetuned folder (the finetuned model), api_server.py and masry-system-prompt.txt
+> 
 ### 4.3 Start the server
 
 ```bash
