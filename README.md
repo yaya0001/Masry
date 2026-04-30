@@ -404,7 +404,7 @@ scp -i "project-key.pem" -r masry-project/* ubuntu@35.172.182.41:/home/ubuntu/ma
 cd masry
 python3 -m venv masry
 source bin/activate
-pip install -r requirements.txt
+pip install -r deploy-requirements.txt
 ```
 >
 > Note: The the files uploaded are the llama3-3b-finetuned folder (the finetuned model), api_server.py and masry-system-prompt.txt
